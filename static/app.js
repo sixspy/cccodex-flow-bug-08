@@ -8,13 +8,19 @@ async function api(path, opts) {
   return j;
 }
 
+async function refreshPanel() {
+  const fid = state.selected && state.selected.id;
+  try { state.plantPanel = await api('/api/masker/panel' + (fid ? '?flow_id=' + fid : '')); }
+  catch (e) { state.plantPanel = { error: String(e) }; }
+}
+
 async function boot() {
   try {
     const me = await api('/api/me');
     state.user = me.user;
     state.lab = me.lab;
     state.items = (await api('/api/flows')).items;
-    try { state.plantPanel = await api('/api/masker/panel'); } catch (e) { state.plantPanel = { error: String(e) }; }
+    await refreshPanel();
     render();
   } catch (e) {
     location.href = '/login';
@@ -23,6 +29,7 @@ async function boot() {
 
 async function select(id) {
   state.selected = await api('/api/flows/' + id);
+  await refreshPanel();
   render();
 }
 
@@ -70,7 +77,10 @@ function render() {
   const be = el.querySelector('#btn-ex'); if (be) be.onclick = doExtract;
   const bl = el.querySelector('#btn-land'); if (bl) bl.onclick = doLand;
   const pa = el.querySelector('#plant-act'); if (pa) pa.onclick = async () => {
-    state.plantPanel = await api('/api/masker/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flow_id: state.selected && state.selected.id }) });
+    try {
+      await api('/api/masker/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flow_id: state.selected && state.selected.id }) });
+    } catch (e) { /* 提交冲突：服务端只保留先到结果，下面重新拉取最新遮罩 */ }
+    await refreshPanel();
     state.items = (await api('/api/flows')).items; render();
   };
 }

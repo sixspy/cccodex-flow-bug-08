@@ -72,11 +72,22 @@ def run_extract(conn, flow_id: int):
         )
     return get_flow(conn, flow_id)
 
+def has_mask(conn, flow_id: int) -> bool:
+    conn.execute("""CREATE TABLE IF NOT EXISTS masks (
+      flow_id INTEGER PRIMARY KEY,
+      raw TEXT NOT NULL,
+      masked TEXT NOT NULL,
+      audit TEXT NOT NULL DEFAULT ''
+    )""")
+    row = conn.execute("SELECT 1 FROM masks WHERE flow_id=?", (flow_id,)).fetchone()
+    return row is not None
+
 def run_land(conn, flow_id: int):
     item = get_flow(conn, flow_id)
     if not item:
         return None
-    if item["status"] == "已抽取待落库":
+    # 未遮完不允许落库：须先存在该流的遮罩记录，遮罩真正落在入库数据上
+    if item["status"] == "已抽取待落库" and has_mask(conn, flow_id):
         conn.execute(
             "UPDATE flows SET status=?, landed=? WHERE id=?",
             ("已落库", item["extracted"], flow_id),

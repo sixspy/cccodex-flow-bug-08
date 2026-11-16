@@ -70,6 +70,7 @@ async def api_login(request: Request):
         ser.dumps({"user": user}),
         httponly=True,
         samesite="Lax",
+        secure=False,  # 实验台走明文 HTTP（6300/6470），Secure 会导致浏览器不回传会话
         path="/",
     )
     return resp
@@ -98,7 +99,7 @@ async def api_flows(request: Request):
         return json({"items": list_flows(conn)})
 
 
-@app.get("/api/flows/<int:flow_id>")
+@app.get("/api/flows/<flow_id:int>")
 async def api_flow(request: Request, flow_id: int):
     if not _user(request):
         return json({"detail": "未登录"}, status=401)
@@ -109,7 +110,7 @@ async def api_flow(request: Request, flow_id: int):
     return json(item)
 
 
-@app.post("/api/flows/<int:flow_id>/extract")
+@app.post("/api/flows/<flow_id:int>/extract")
 async def api_extract(request: Request, flow_id: int):
     if not _user(request):
         return json({"detail": "未登录"}, status=401)
@@ -120,7 +121,7 @@ async def api_extract(request: Request, flow_id: int):
     return json(item)
 
 
-@app.post("/api/flows/<int:flow_id>/land")
+@app.post("/api/flows/<flow_id:int>/land")
 async def api_land(request: Request, flow_id: int):
     if not _user(request):
         return json({"detail": "未登录"}, status=401)
@@ -139,7 +140,7 @@ async def api_masker_panel(request: Request):
     if not _user(request):
         return json({"detail": "未登录"}, status=401)
     with get_db() as conn:
-        return json(panel_payload(conn, dict(request.args)))
+        return json(panel_payload(conn, request.args))
 
 @app.post("/api/masker/action")
 async def api_masker_action(request: Request):
